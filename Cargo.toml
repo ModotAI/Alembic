@@ -1,0 +1,21 @@
+[package]
+name = "alembic"
+version = "0.1.0"
+edition = "2021"
+description = "TUI tool for synthetic dataset generation and LLM distillation"
+authors = ["ThingAI"]
+license = "Apache-2.0"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+chrono = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
