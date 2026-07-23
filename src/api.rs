@@ -25,6 +25,7 @@ pub enum Provider {
     OpenRouter,
     Mistral,
     GoogleAI,
+    Ollama,
     Local(String),
 }
 
@@ -38,6 +39,7 @@ impl Provider {
             Self::OpenRouter => "OpenRouter",
             Self::Mistral => "Mistral",
             Self::GoogleAI => "Google AI",
+            Self::Ollama => "Ollama",
             Self::Local(_) => "Local",
         }
     }
@@ -50,6 +52,7 @@ impl Provider {
             Self::OpenRouter => "nvidia/nemotron-3-super-120b-a12b:free",
             Self::Mistral => "mistral-small-latest",
             Self::GoogleAI => "gemini-2.5-flash",
+            Self::Ollama => "llama3.1:8b",
             Self::Local(_) => "default",
         }
     }
@@ -62,11 +65,12 @@ impl Provider {
             Self::OpenRouter => "https://openrouter.ai/api",
             Self::Mistral => "https://api.mistral.ai",
             Self::GoogleAI => "https://generativelanguage.googleapis.com",
+            Self::Ollama => "http://localhost:11434",
             Self::Local(url) => url,
         }
     }
     pub fn all() -> Vec<Provider> {
-        vec![Self::Groq, Self::OpenRouter, Self::Cerebras, Self::Mistral, Self::OpenAI, Self::Claude]
+        vec![Self::Groq, Self::OpenRouter, Self::Ollama, Self::Cerebras, Self::Mistral, Self::OpenAI, Self::Claude]
     }
 }
 
