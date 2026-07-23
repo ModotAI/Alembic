@@ -185,19 +185,20 @@ pub async fn distill_answers(
     let _ = tx.send(ProgressEvent::Phase("Distilling answers...".into()));
 
     let mut samples = Vec::new();
-    let delay_ms = 2100; // 30 req/min = 1 ogni 2s, con margine
+    let is_local = matches!(api_cfg.provider, crate::api::Provider::Ollama | crate::api::Provider::Local(_));
+    let delay_ms: u64 = if is_local { 0 } else { 2100 };
 
     for (idx, (topic, question)) in questions.iter().enumerate() {
         // Retry con backoff
         let mut answer = None;
+        let mut consecutive_fails = 0;
         for attempt in 0..3 {
             match call_api(client, api_cfg, &dist_cfg.system_prompt, question).await {
-                Ok(a) => { answer = Some(a); break; }
+                Ok(a) => { answer = Some(a); consecutive_fails = 0; break; }
                 Err(e) => {
                     let err_str = format!("{e}");
                     if err_str.contains("429") {
-                        // Rate limited — aspetta e riprova
-                        let wait = (attempt + 1) * 15; // 15s, 30s, 45s
+                        let wait = (attempt + 1) * 15;
                         let _ = tx.send(ProgressEvent::Error(idx, format!("Rate limited, waiting {wait}s...")));
                         tokio::time::sleep(tokio::time::Duration::from_secs(wait)).await;
                     } else {
@@ -205,6 +206,14 @@ pub async fn distill_answers(
                         break;
                     }
                 }
+            }
+        }
+
+        if answer.is_none() {
+            consecutive_fails += 1;
+            if consecutive_fails >= 3 {
+                let _ = tx.send(ProgressEvent::Error(idx, "3 consecutive failures — saving partial dataset and stopping.".into()));
+                break;
             }
         }
 
