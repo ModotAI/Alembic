@@ -48,6 +48,13 @@ pub struct App {
     pub final_path: String,
     pub final_count: usize,
 
+    // Quit confirmation
+    pub confirm_quit: bool,
+
+    // Checkpoint
+    pub checkpoint_interval: usize,
+    pub last_checkpoint: usize,
+
     pub rx: Option<mpsc::UnboundedReceiver<ProgressEvent>>,
 }
 
@@ -72,11 +79,31 @@ impl App {
             running: false,
             final_path: String::new(),
             final_count: 0,
+            confirm_quit: false,
+            checkpoint_interval: 100,
+            last_checkpoint: 0,
             rx: None,
         }
     }
 
     pub fn handle_key(&mut self, code: KeyCode) -> bool {
+        // Quit confirmation dialog
+        if self.confirm_quit {
+            match code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    // If running, save checkpoint before quitting
+                    if self.screen == Screen::Running && !self.samples.is_empty() {
+                        self.save_checkpoint();
+                    }
+                    return true;
+                }
+                _ => {
+                    self.confirm_quit = false;
+                    return false;
+                }
+            }
+        }
+
         // Editing mode
         if self.editing {
             match code {
@@ -94,7 +121,7 @@ impl App {
 
         match self.screen {
             Screen::Setup => match code {
-                KeyCode::Char('q') | KeyCode::Esc => return true,
+                KeyCode::Char('q') | KeyCode::Esc => { self.confirm_quit = true; }
                 KeyCode::Tab => { self.tab = (self.tab + 1) % 4; self.field_idx = 0; }
                 KeyCode::BackTab => { self.tab = if self.tab == 0 { 3 } else { self.tab - 1 }; self.field_idx = 0; }
                 KeyCode::Char('1') => { self.tab = 0; self.field_idx = 0; }
@@ -113,15 +140,14 @@ impl App {
             },
             Screen::Running => match code {
                 KeyCode::Char('q') | KeyCode::Esc => {
-                    self.running = false;
-                    self.screen = Screen::Setup;
+                    self.confirm_quit = true;
                 }
                 KeyCode::Up => { if self.log_scroll > 0 { self.log_scroll -= 1; } }
                 KeyCode::Down => { self.log_scroll += 1; }
                 _ => {}
             },
             Screen::Done => match code {
-                KeyCode::Char('q') | KeyCode::Esc => return true,
+                KeyCode::Char('q') | KeyCode::Esc => { self.confirm_quit = true; }
                 KeyCode::Enter | KeyCode::Char('n') => {
                     self.screen = Screen::Setup;
                     self.samples.clear();
@@ -133,6 +159,25 @@ impl App {
             },
         }
         false
+    }
+
+    fn save_checkpoint(&self) {
+        let path = format!(
+            "{}.checkpoint",
+            self.distill_config.output_path.to_string_lossy()
+        );
+        match crate::distill::save_dataset(
+            &self.samples,
+            &self.distill_config.output_format,
+            std::path::Path::new(&path),
+        ) {
+            Ok(n) => {
+                eprintln!("Checkpoint saved: {} samples → {}", n, path);
+            }
+            Err(e) => {
+                eprintln!("Checkpoint save failed: {}", e);
+            }
+        }
     }
 
     fn max_fields(&self) -> usize {
@@ -243,6 +288,20 @@ impl App {
                             sample.tokens_est
                         ));
                         self.samples.push(sample);
+
+                        // Auto-checkpoint every N samples
+                        if self.checkpoint_interval > 0
+                            && self.completed > 0
+                            && self.completed % self.checkpoint_interval == 0
+                            && self.completed != self.last_checkpoint
+                        {
+                            self.last_checkpoint = self.completed;
+                            self.save_checkpoint();
+                            self.log.push(format!(
+                                "── 💾 Checkpoint saved ({} samples)",
+                                self.completed
+                            ));
+                        }
                     }
                     ProgressEvent::Error(idx, msg) => {
                         self.errors += 1;
@@ -287,10 +346,14 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     // Status bar
     let status = match app.screen {
-        Screen::Setup => "Tab: switch section │ Enter: select │ q: quit",
-        Screen::Running => "↑/↓: scroll log │ q: cancel",
-        Screen::Done => "Enter: new run │ q: quit",
+        Screen::Setup => "Tab: switch │ Enter: select │ q: quit".to_string(),
+        Screen::Running => format!(
+            "↑/↓: scroll │ q: stop │ checkpoint every {} samples",
+            app.checkpoint_interval
+        ),
+        Screen::Done => "Enter: new run │ q: quit".to_string(),
     };
+    let status = status.as_str();
     f.render_widget(
         Paragraph::new(Span::styled(format!(" {status}"), Style::default().fg(DIM))),
         chunks[2],
@@ -301,6 +364,32 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Setup => draw_setup(f, app, chunks[1]),
         Screen::Running => draw_running(f, app, chunks[1]),
         Screen::Done => draw_done(f, app, chunks[1]),
+    }
+
+    // Quit confirmation overlay
+    if app.confirm_quit {
+        let msg = if app.screen == Screen::Running && !app.samples.is_empty() {
+            format!(
+                " Quit? {} samples will be saved to checkpoint. (y/n) ",
+                app.samples.len()
+            )
+        } else {
+            " Quit? (y/n) ".to_string()
+        };
+
+        let popup = centered_rect(50, 3, size);
+        let confirm = Paragraph::new(Line::from(vec![
+            Span::styled(&msg, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ]))
+        .alignment(ratatui::layout::Alignment::Center)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(RED))
+                .style(Style::default().bg(Color::Rgb(30, 0, 0))),
+        );
+        f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(0, 0, 0))), popup);
+        f.render_widget(confirm, popup);
     }
 }
 
