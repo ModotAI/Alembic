@@ -1,6 +1,6 @@
 use crate::api::{ApiConfig, Provider};
 use crate::distill::{DistillConfig, OutputFormat, ProgressEvent, Sample};
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::KeyCode;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -8,7 +8,6 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Tabs, Wrap},
     Frame,
 };
-use std::time::Duration;
 use tokio::sync::mpsc;
 
 const ACCENT: Color = Color::Rgb(108, 143, 255);
@@ -91,7 +90,6 @@ impl App {
         if self.confirm_quit {
             match code {
                 KeyCode::Char('y') | KeyCode::Char('Y') => {
-                    // If running, save checkpoint before quitting
                     if self.screen == Screen::Running && !self.samples.is_empty() {
                         self.save_checkpoint();
                     }
@@ -139,9 +137,7 @@ impl App {
                 _ => {}
             },
             Screen::Running => match code {
-                KeyCode::Char('q') | KeyCode::Esc => {
-                    self.confirm_quit = true;
-                }
+                KeyCode::Char('q') | KeyCode::Esc => { self.confirm_quit = true; }
                 KeyCode::Up => { if self.log_scroll > 0 { self.log_scroll -= 1; } }
                 KeyCode::Down => { self.log_scroll += 1; }
                 _ => {}
@@ -268,6 +264,8 @@ impl App {
     }
 
     pub fn process_events(&mut self) {
+        let mut needs_checkpoint = false;
+
         if let Some(rx) = &mut self.rx {
             while let Ok(ev) = rx.try_recv() {
                 match ev {
@@ -289,18 +287,12 @@ impl App {
                         ));
                         self.samples.push(sample);
 
-                        // Auto-checkpoint every N samples
                         if self.checkpoint_interval > 0
                             && self.completed > 0
                             && self.completed % self.checkpoint_interval == 0
                             && self.completed != self.last_checkpoint
                         {
-                            self.last_checkpoint = self.completed;
-                            self.save_checkpoint();
-                            self.log.push(format!(
-                                "── 💾 Checkpoint saved ({} samples)",
-                                self.completed
-                            ));
+                            needs_checkpoint = true;
                         }
                     }
                     ProgressEvent::Error(idx, msg) => {
@@ -315,6 +307,15 @@ impl App {
                     }
                 }
             }
+        }
+
+        if needs_checkpoint {
+            self.last_checkpoint = self.completed;
+            self.save_checkpoint();
+            self.log.push(format!(
+                "── 💾 Checkpoint saved ({} samples)",
+                self.completed
+            ));
         }
     }
 }
@@ -353,7 +354,6 @@ pub fn draw(f: &mut Frame, app: &App) {
         ),
         Screen::Done => "Enter: new run │ q: quit".to_string(),
     };
-    let status = status.as_str();
     f.render_widget(
         Paragraph::new(Span::styled(format!(" {status}"), Style::default().fg(DIM))),
         chunks[2],
