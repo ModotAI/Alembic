@@ -2,8 +2,8 @@
 name = "alembic"
 version = "0.1.0"
 edition = "2021"
-description = "TUI tool for synthetic dataset generation and LLM distillation"
-authors = ["ThingAI"]
+description = "TUI tool for dataset generation and LLM distillation"
+authors = ["ModotAI"]
 license = "Apache-2.0"
 
 [dependencies]
