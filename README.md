@@ -1,5 +1,5 @@
 
-# ⚗ Alembic ![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white) ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
+# ⚗ Alembic ![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
 
 **TUI tool for synthetic dataset generation and LLM distillation.**
 
