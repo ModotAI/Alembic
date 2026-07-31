@@ -7,6 +7,10 @@ Alembic distills knowledge from large language models into structured datasets f
 ![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
+<p align="center">
+  <img src="demo.gif" alt="Alembic demo" width="800" />
+</p>
+
 ## Features
 
 - **Multi-provider** — Groq, OpenRouter, Cerebras, Mistral, OpenAI, Claude
