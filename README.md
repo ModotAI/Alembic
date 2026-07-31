@@ -1,11 +1,11 @@
-# ⚗ Alembic
+
+# ⚗ Alembic ![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white) ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
 **TUI tool for synthetic dataset generation and LLM distillation.**
 
 Alembic distills knowledge from large language models into structured datasets for training smaller models. Configure your API, pick topics, choose output format, and let it run.
 
-![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
-![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
+
 
 <p align="center">
   <img src="demo.gif" alt="Alembic demo" width="800" />
